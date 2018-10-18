@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: HTTP Basic authentication Lambda@Edge
+Parameters:
+  AuthUsername:
+    Description: Username for http basic auth
+    Type: String
+  AuthPassword:
+    Description: Password for http basic auth
+    Type: String
+  AuthCookieSecret:
+    Description: Secret used to generate cookie hash
+    Type: String
+  AuthCookieMaxAgeSeconds:
+    Description: Authentication cookie max age in seconds
+    Type: Number
+  Domain:
+    Description: Domain for authentication cookie domain param and redirects. example value, domain.com
+    Type: String
+  AuthEnabled:
+    Description: Require authentication to access the environment. Set false in prod environments
+    AllowedValues:
+    - true
+    - false
+    Type: String
+
+Resources:
+  EdgeLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action: 'sts:AssumeRole'
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+            - edgelambda.amazonaws.com
+            - replicator.lambda.amazonaws.com
+          Effect: Allow
+      Policies:
+      - PolicyName: EdgePoliciesLambdaPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - 'lambda:GetFunction'
+            - 'lambda:EnableReplication*'
+            - 'lambda:InvokeFunction'
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'xray:PutTraceSegments'
+            - 'xray:PutTelemetryRecords'
+            Effect: Allow
+            Resource: '*'
+
+  AuthEdgeLambda:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'index.beforeOriginRequest'
+      Role: !GetAtt EdgeLambdaRole.Arn
+      Code:
+        ZipFile: !Sub "
+          'use strict';
+          const path = require('path');
+
+          exports.beforeOriginRequest = (event, context, callback) => {
+            const { request } = event.Records[0].cf;
+            const uri = request.uri;
+            const headers = request.headers;
+            const AUTH_COOKIE_NAME = 'dev-auth=';
+
+            const authEnabled = ${AuthEnabled};
+            const authCookieSecret = '${AuthCookieSecret}';
+            const authUsername = '${AuthUsername}';
+            const authPassword = '${AuthPassword}';
+            const authCookieMaxAgeSeconds = ${AuthCookieMaxAgeSeconds};
+            const domain = '${Domain}';
+
+            let response = null;
+
+            if(authEnabled) {
+              const authCookieValue = getCookieValue(headers, AUTH_COOKIE_NAME);
+
+              if(authCookieValue !== authCookieSecret) {
+                const basicAuthString = 'Basic ' + new Buffer(authUsername + ':' + authPassword).toString('base64');
+
+                if (headers.authorization && headers.authorization[0].value === basicAuthString) {
+                  const authCookieValue = AUTH_COOKIE_NAME + authCookieSecret + '; Max-Age=' + authCookieMaxAgeSeconds + '; Domain=' + domain +'; HttpOnly; Secure; Path=/';
+
+                  response =  {
+                    status: '307',
+                    statusDescription: 'Authentication success',
+                    headers: {
+                      'Set-Cookie': [{
+                        key: 'Set-Cookie',
+                        value: authCookieValue,
+                      }],
+                      location: [{
+                        key: 'Location',
+                        value: 'https://' + domain + uri,
+                      }]
+                    }
+                  };
+                } else {
+                  response = {
+                    status: '401',
+                    statusDescription: 'Unauthorized',
+                    body: 'Please authenticate',
+                    headers: {
+                      'www-authenticate': [{key: 'WWW-Authenticate', value:'Basic realm=' + domain}]
+                    }
+                  };
+                }
+              }
+            }
+
+            if(response) {
+              callback(null, response);
+            } else {
+              // Optional SPA routing. If requested object doesn't have file name extension it is considered SPA route and responded with index.html
+
+              if (path.extname(request.uri) === '') {
+                request.uri = `/index.html`;
+              }
+              callback(null, request);
+            }
+          };
+
+          const getCookieValue = (headers, cookieName) => {
+            if (headers.cookie) {
+              const foundCookie = headers.cookie
+                .map(cookie => cookie.value)
+                .reduce((all, current) => {
+                  return current.split(';').concat(all);
+                }, [])
+                .find(cookie => cookie.includes(cookieName));
+              return foundCookie && foundCookie.split('=').pop();
+            }
+            return null;
+          };
+          "
+      Runtime: 'nodejs8.10'
+      Timeout: '5'
+      TracingConfig:
+        Mode: 'Active'
+
+  AuthEdgeLambdaVersion:
+    Type: 'AWS::Lambda::Version'
+    Properties:
+      FunctionName:
+        Ref: AuthEdgeLambda
+
+Outputs:
+  AuthEdgeLambdaArn:
+    Description: Arn of the auth edge lambda
+    Value: !GetAtt AuthEdgeLambda.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-AuthEdgeLambda-Arn
+  AuthEdgeLambdaVersion:
+    Description: Version of the auth edge lambda
+    Value: !GetAtt AuthEdgeLambdaVersion.Version
+    Export:
+      Name: !Sub ${AWS::StackName}-AuthEdgeLambda-Version

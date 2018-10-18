@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: aws-cloudfront-basic-auth demo. Author Juho Rautio, Webscale Oy
+
+Outputs:
+  CloudfrontDomain:
+    Description: Domain of Cloudfront distribution
+    Value:
+      Fn::GetAtt:
+      - Distribution
+      - DomainName
+
+Parameters:
+  Domain:
+    Description: Distribution alias domain, e.g. example.com
+    Type: String
+  AcmCertificateArn:
+    Description: ARN of the ACM certificate associated with domain name
+    Type: String
+  StaticWebResourcesBucketName:
+    Description: Name of the bucket for example random-organization-application-environment
+    Type: String
+  AuthEdgeLambdaArn:
+    Description: Arn of the auth Lambda function
+    Type: String
+  AuthEdgeLambdaVersion:
+    Description: Version of the auth Lambda function
+    Type: Number
+
+Resources:
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    DeletionPolicy: Retain
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "CloudFront Origin Access Identity"
+
+  WebsiteBucket:
+    Properties:
+      BucketName: !Ref StaticWebResourcesBucketName
+    DeletionPolicy: Delete
+    Type: AWS::S3::Bucket
+
+  WebsiteBucketPolicy:
+    Properties:
+      Bucket:
+        Ref: WebsiteBucket
+      PolicyDocument:
+        Statement:
+        -
+          Action: s3:GetObject
+          Effect: Allow
+          Resource: !Sub "arn:aws:s3:::${StaticWebResourcesBucketName}/*"
+          Principal:
+            CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+    Type: AWS::S3::BucketPolicy
+
+  Distribution:
+    Properties:
+      DistributionConfig:
+        HttpVersion: http2
+        Aliases:
+        - Ref: Domain
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          Compress: true
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: true
+          TargetOriginId: StaticWebResources
+          ViewerProtocolPolicy: redirect-to-https
+          LambdaFunctionAssociations:
+          -
+            EventType: 'viewer-request'
+            LambdaFunctionARN: !Sub "${AuthEdgeLambdaArn}:${AuthEdgeLambdaVersion}"
+
+        Enabled: 'true'
+        Comment: !Sub "HTTP Basic auth with Lambda@Edge demo CloudFront"
+        Origins:
+        -
+          DomainName:
+            Fn::GetAtt:
+            - WebsiteBucket
+            - DomainName
+          Id: StaticWebResources
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn:
+            Ref: AcmCertificateArn
+          SslSupportMethod: sni-only
+    Type: AWS::CloudFront::Distribution
