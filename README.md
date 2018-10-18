@@ -13,7 +13,7 @@ Requirements for the solution were
 *  Don’t want to infect or change the Web Application
 
 ## Disclaimer
-This solution should NOT be used in production environments or for protecting any sensitive data
+This solution should NOT be used in production environments or for protecting any sensitive data. 
 
 ## Prerequisites
 * You need to specify a domain name for the CloudFront
@@ -31,6 +31,7 @@ This solution should NOT be used in production environments or for protecting an
 * Upload index.html with any content to the root of the private S3 bucket 
 
 ## Good to know
+* Lambda@Edge does not support Environment variables why stack parameters are injected with the !Sub function to the Lambda function code
 * Even the browser sends the Basic auth information in Authorization header after login, it can be overwritten in JavaScript
 * Logging out of HTTP Basic auth can only be done by responding 401 from server and setting false credentials
 * Would be good idea to rotate cookie secret and password regularly
