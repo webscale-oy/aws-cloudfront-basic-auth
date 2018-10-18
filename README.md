@@ -16,22 +16,22 @@ Requirements for the solution were
 This solution should NOT be used in production environments or for protecting any sensitive data
 
 ## Prerequisites
-* You need specify a domain name for the CloudFront
+* You need to specify a domain name for the CloudFront
 * You need to have an ACM certificate for the above domain
 * Lambda@Edge functions MUST be deployed to the 'us-east-1' region
 
 ## Steps to deploy
-* Generate ACM certificate for desired domain name
-* Create new stack from template [basic-auth-edge-lambda.yaml](cloudformation/basic-auth-edge-lambda.yaml)
-* Create new stack from template [web-frontend.yaml](cloudformation/web-frontend.yaml)
-    * Input as parameter ARN of the ACM Certificate matching the desired domain
-    * Input the desired domain 
-    * Input as parameter ARN of the basic auth edge lambda function (exported from the first stack)
-    * Input as parameter Version of the basic auth edge lambda function (exported from the first stack)
+* Generate an ACM certificate for the desired domain name
+* Create a new stack from template [basic-auth-edge-lambda.yaml](cloudformation/basic-auth-edge-lambda.yaml)
+* Create a new stack from template [web-frontend.yaml](cloudformation/web-frontend.yaml)
+    * Input as a parameter the ARN of the ACM Certificate matching the desired domain
+    * Input the desired domain name 
+    * Input as a parameter ARN of the basic auth edge lambda function (exported from the first stack)
+    * Input as a parameter Version of the basic auth edge lambda function (exported from the first stack)
 * Upload index.html with any content to the root of the private S3 bucket 
 
 ## Good to know
-* Even the browser send the Basic auth information in Authorization header after login, it can be overwritten in JavaScript
+* Even the browser sends the Basic auth information in Authorization header after login, it can be overwritten in JavaScript
 * Logging out of HTTP Basic auth can only be done by responding 401 from server and setting false credentials
 * Would be good idea to rotate cookie secret and password regularly
 
