@@ -77,8 +77,6 @@ Resources:
             const authCookieMaxAgeSeconds = ${AuthCookieMaxAgeSeconds};
             const domain = '${Domain}';
 
-            let response = null;
-
             if(authEnabled) {
               const authCookieValue = getCookieValue(headers, AUTH_COOKIE_NAME);
 
@@ -88,7 +86,7 @@ Resources:
                 if (headers.authorization && headers.authorization[0].value === basicAuthString) {
                   const authCookieValue = AUTH_COOKIE_NAME + authCookieSecret + '; Max-Age=' + authCookieMaxAgeSeconds + '; Domain=' + domain +'; HttpOnly; Secure; Path=/';
 
-                  response =  {
+                  callback(null, {
                     status: '307',
                     statusDescription: 'Authentication success',
                     headers: {
@@ -101,30 +99,26 @@ Resources:
                         value: 'https://' + domain + uri,
                       }]
                     }
-                  };
+                  });
                 } else {
-                  response = {
+                  callback(null, {
                     status: '401',
                     statusDescription: 'Unauthorized',
                     body: 'Please authenticate',
                     headers: {
                       'www-authenticate': [{key: 'WWW-Authenticate', value:'Basic realm=' + domain}]
                     }
-                  };
+                  });
                 }
               }
             }
+            // Optional SPA routing. If requested object doesn't have file name extension it is considered SPA route and responded with index.html
 
-            if(response) {
-              callback(null, response);
-            } else {
-              // Optional SPA routing. If requested object doesn't have file name extension it is considered SPA route and responded with index.html
-
-              if (path.extname(request.uri) === '') {
-                request.uri = `/index.html`;
-              }
-              callback(null, request);
+            if (path.extname(request.uri) === '') {
+              request.uri = `/index.html`;
             }
+            callback(null, request);
+
           };
 
           const getCookieValue = (headers, cookieName) => {

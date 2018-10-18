@@ -4,10 +4,7 @@ Description: aws-cloudfront-basic-auth demo. Author Juho Rautio, Webscale Oy
 Outputs:
   CloudfrontDomain:
     Description: Domain of Cloudfront distribution
-    Value:
-      Fn::GetAtt:
-      - Distribution
-      - DomainName
+    Value: !GetAtt Distribution.DomainName
 
 Parameters:
   Domain:
@@ -35,12 +32,13 @@ Resources:
         Comment: "CloudFront Origin Access Identity"
 
   WebsiteBucket:
+    Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref StaticWebResourcesBucketName
     DeletionPolicy: Delete
-    Type: AWS::S3::Bucket
 
   WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
     Properties:
       Bucket:
         Ref: WebsiteBucket
@@ -52,9 +50,9 @@ Resources:
           Resource: !Sub "arn:aws:s3:::${StaticWebResourcesBucketName}/*"
           Principal:
             CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
-    Type: AWS::S3::BucketPolicy
 
   Distribution:
+    Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         HttpVersion: http2
@@ -78,13 +76,10 @@ Resources:
             LambdaFunctionARN: !Sub "${AuthEdgeLambdaArn}:${AuthEdgeLambdaVersion}"
 
         Enabled: 'true'
-        Comment: !Sub "HTTP Basic auth with Lambda@Edge demo CloudFront"
+        Comment: "HTTP Basic auth with Lambda@Edge demo CloudFront"
         Origins:
         -
-          DomainName:
-            Fn::GetAtt:
-            - WebsiteBucket
-            - DomainName
+          DomainName: !GetAtt WebsiteBucket.DomainName
           Id: StaticWebResources
           S3OriginConfig:
             OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
@@ -93,4 +88,3 @@ Resources:
           AcmCertificateArn:
             Ref: AcmCertificateArn
           SslSupportMethod: sni-only
-    Type: AWS::CloudFront::Distribution
