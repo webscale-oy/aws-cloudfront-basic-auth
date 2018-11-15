@@ -41,3 +41,6 @@ This solution should NOT be used in production environments or for protecting an
 
 ## Sequence diagram of the authentication logic
 ![Serverless Web Application Infrastucture](images/basic-auth-sequence-diagram.png)
+
+### Credit
+Inspired by [lmakarov/lambda-basic-auth.js](https://gist.github.com/lmakarov/e5984ec16a76548ff2b278c06027f1a4)
