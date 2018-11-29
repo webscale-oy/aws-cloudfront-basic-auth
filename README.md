@@ -18,10 +18,11 @@ This solution should NOT be used in production environments or for protecting an
 ## Prerequisites
 * You need to specify a domain name for the CloudFront
 * You need to have an ACM certificate for the above domain
-* Lambda@Edge functions MUST be deployed to the 'us-east-1' region
+* ACM cetificates used with Cloudfront MUST be created to the 'us-east-1' region. [Cloudfront documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html#https-requirements-aws-region)
+* Lambda@Edge functions MUST be deployed to the 'us-east-1' region [Lambda@Edge documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-requirements-limits.html#lambda-requirements-cloudfront-triggers)
 
 ## Steps to deploy
-* Generate an ACM certificate for the desired domain name
+* Generate an ACM certificate in to 'us-east-1' region for the desired domain name
 * Create a new stack from template [basic-auth-edge-lambda.yaml](cloudformation/basic-auth-edge-lambda.yaml)
 * Create a new stack from template [web-frontend.yaml](cloudformation/web-frontend.yaml)
     * Input as a parameter the ARN of the ACM Certificate matching the desired domain
