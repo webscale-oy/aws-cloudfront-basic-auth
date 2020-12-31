@@ -60,7 +60,7 @@ Resources:
       Handler: 'index.beforeOriginRequest'
       Role: !GetAtt EdgeLambdaRole.Arn
       Code:
-        ZipFile: !Sub "
+        ZipFile: !Sub |
           'use strict';
           const path = require('path');
 
@@ -133,8 +133,7 @@ Resources:
             }
             return null;
           };
-          "
-      Runtime: 'nodejs8.10'
+      Runtime: 'nodejs12.x'
       Timeout: '5'
       TracingConfig:
         Mode: 'Active'
